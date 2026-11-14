@@ -1,6 +1,8 @@
 import os
 import subprocess
 import argparse
+from datetime import datetime
+from collections import deque
 from logcat_parser import parse_logcat_lines
 from report_generator import export_reports
 
@@ -15,10 +17,63 @@ SAMPLE_LOGCAT = """11-14 14:20:01.102  2410  2410 I ActivityManager: Start proc 
 11-14 14:23:10.015  3200  3240 F libc    : Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0 in tid 3240
 """
 
+CRITICAL_KEYWORDS = ("FATAL EXCEPTION", "ANR in ", "OutOfMemoryError", "Fatal signal", "SIGSEGV")
+
+def watch_adb_realtime(out_dir: str):
+    os.makedirs(out_dir, exist_ok=True)
+    try:
+        proc = subprocess.Popen(
+            ["adb", "logcat", "-v", "threadtime"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="ignore",
+            bufsize=1
+        )
+    except FileNotFoundError:
+        print("❌ 'adb'를 찾을 수 없습니다. Android SDK Platform-Tools 설치 및 PATH 등록 후 다시 시도하세요.")
+        return
+
+    print("👀 [실시간 감시 중] Android 단말의 크래시/ANR을 기다리고 있습니다... (종료: Ctrl+C)\n")
+    recent_buffer = deque(maxlen=30)
+    crash_count = 0
+
+    try:
+        for raw_line in proc.stdout:
+            line = raw_line.rstrip("\r\n")
+            if not line:
+                continue
+            recent_buffer.append(line)
+
+            matched_kw = next((kw for kw in CRITICAL_KEYWORDS if kw in line), None)
+            if matched_kw:
+                crash_count += 1
+                now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+                human_time = datetime.now().strftime("%H:%M:%S")
+                report_file = os.path.join(out_dir, f"realtime_crash_{now_str}_{crash_count}.md")
+
+                with open(report_file, "w", encoding="utf-8") as f:
+                    f.write(f"# 🚨 실시간 크래시 감지 보고서 (#{crash_count})\n\n")
+                    f.write(f"- **감지 시각**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    f.write(f"- **감지 패턴**: `{matched_kw}`\n")
+                    f.write(f"- **핵심 로그**: `{line}`\n\n")
+                    f.write("## 직전 30줄 문맥 로그 (Context)\n```text\n")
+                    f.write("\n".join(recent_buffer) + "\n```\n")
+
+                print(f"🚨 [{human_time}] 치명적 오류 감지! ({matched_kw})")
+                print(f"   └─ 내용: {line[:90]}")
+                print(f"   └─ 자동 저장: {report_file}\n")
+    except KeyboardInterrupt:
+        print(f"\n🛑 실시간 감시를 종료했습니다. (총 {crash_count}건 감지)")
+    finally:
+        proc.terminate()
+
 def main():
     parser = argparse.ArgumentParser(description="Android ADB Logcat Crash & ANR Analyzer")
     parser.add_argument("--file", type=str, default=None, help="분석할 logcat 텍스트 파일 경로")
     parser.add_argument("--adb", action="store_true", help="연결된 Android 단말에서 'adb logcat -d'를 직접 수집해 분석")
+    parser.add_argument("--watch", action="store_true", help="실시간으로 adb logcat을 감시하며 크래시 발생 즉시 경보 및 저장")
     parser.add_argument("--out", type=str, default="logcat_reports", help="결과 보고서 저장 폴더")
     args = parser.parse_args()
 
@@ -26,7 +81,11 @@ def main():
     print("📱 [ADB Logcat Analyzer] 모바일 앱 크래시 · ANR 자동 분석기")
     print("=" * 65)
 
-    if args.adb:    
+    if args.watch:
+        watch_adb_realtime(args.out)
+        return
+
+    if args.adb:
         try:
             proc = subprocess.run(["adb", "logcat", "-d"], capture_output=True, text=True, encoding="utf-8", errors="ignore")
         except FileNotFoundError:
