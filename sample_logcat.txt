@@ -1,0 +1,9 @@
+11-14 14:20:01.102  2410  2410 I ActivityManager: Start proc com.example.app for activity
+11-14 14:20:05.331  2410  2455 D NetworkMonitor: HTTP 200 OK (42ms)
+11-14 14:21:12.884  2410  2410 E AndroidRuntime: FATAL EXCEPTION: main
+11-14 14:21:12.884  2410  2410 E AndroidRuntime: Process: com.example.app, PID: 2410
+11-14 14:21:12.884  2410  2410 E AndroidRuntime: java.lang.NullPointerException: Attempt to invoke virtual method on a null object reference
+11-14 14:21:12.885  2410  2410 E AndroidRuntime:     at com.example.app.ui.PaymentActivity.onCheckoutClick(PaymentActivity.java:142)
+11-14 14:22:03.410  1120  1195 E ActivityManager: ANR in com.example.app (com.example.app/.ui.ChatActivity)
+11-14 14:22:45.901  3105  3122 E art     : java.lang.OutOfMemoryError: Failed to allocate a 33554448 byte allocation
+11-14 14:23:10.015  3200  3240 F libc    : Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0 in tid 3240
