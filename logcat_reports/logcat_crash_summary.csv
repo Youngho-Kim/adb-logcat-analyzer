@@ -1,5 +1,5 @@
-﻿No,Severity,Type,Timestamp,PID,Tag,Line,Summary
-1,P0 (Critical),FATAL_EXCEPTION,11-14 14:21:12.884,2410,AndroidRuntime,3,FATAL EXCEPTION: main
-2,P0 (Critical),ANR,11-14 14:22:03.410,1120,ActivityManager,7,ANR in com.example.app (com.example.app/.ui.ChatActivity)
-3,P1 (High),OOM,11-14 14:22:45.901,3105,art,8,java.lang.OutOfMemoryError: Failed to allocate a 33554448 byte allocation
-4,P0 (Critical),NATIVE_CRASH,11-14 14:23:10.015,3200,libc,9,"Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0 in tid 3240"
+﻿No,Severity,Type,Occurrences,FirstSeen,LastSeen,Tag,Lines,Summary
+1,P0 (Critical),FATAL_EXCEPTION,2,11-14 14:21:12.884,11-14 14:21:40.100,AndroidRuntime,"3,7",FATAL EXCEPTION: main
+2,P0 (Critical),ANR,1,11-14 14:22:03.410,11-14 14:22:03.410,ActivityManager,11,ANR in com.example.app (com.example.app/.ui.ChatActivity)
+3,P1 (High),OOM,1,11-14 14:22:45.901,11-14 14:22:45.901,art,12,java.lang.OutOfMemoryError: Failed to allocate a 33554448 byte allocation
+4,P0 (Critical),NATIVE_CRASH,1,11-14 14:23:10.015,11-14 14:23:10.015,libc,13,"Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0 in tid 3240"

@@ -1,60 +1,69 @@
 # 📱 ADB Logcat Crash & ANR Analyzer
 
-> **Android 디바이스(`adb logcat`) 실시간 크래시 감시 및 대용량 로그 파일 분석을 통해 FATAL EXCEPTION·ANR·OOM·Native Crash를 자동 추출하고 마크다운·CSV 진단 보고서를 생성하는 모바일 QA 자동화 도구**
+> **Android 디바이스 실시간 크래시 감시(자동 스크린샷), Monkey 무인 스트레스 테스트, 중복 크래시 그룹핑, 대용량 로그 분석을 원클릭으로 수행하는 모바일 QA 진단 도구**
 
 ---
 
 ## 📌 프로젝트 개요 (Overview)
 
 * **문제 배경**:
-  * 모바일 앱·AOSP 단말 테스트 중 발생하는 크래시나 프리징 현상을 수만 줄의 `logcat` 텍스트에서 수동으로 검색·정리하는 데 많은 시간이 소요됩니다.
-  * 장시간 테스트 시 크래시가 발생한 정확한 시점과 직전 동작 로그가 밀려 유실되기 쉽습니다.
+  * 모바일 앱·AOSP 단말 테스트 중 수만 줄의 `logcat` 로그에서 크래시와 스택 트레이스를 수동으로 찾는 데 많은 시간이 소요됩니다.
+  * 동일 결함이 반복 발생하면 리포트가 비대해지고, 장시간 테스트 시 크래시 발생 순간의 화면과 직전 동작 로그를 놓치기 쉽습니다.
 * **해결 방안**:
-  * 정규식(`threadtime` 포맷) 기반 파서로 로그를 구조화하고, `FATAL EXCEPTION`의 경우 동일 PID·Tag의 후속 에러 스택 트레이스까지 자동으로 묶어 추출합니다.
-  * `--watch` 실시간 감시 모드를 통해 크래시 발생 즉시 터미널 경보를 띄우고 직전 30줄의 문맥 로그를 별도 리포트로 자동 저장합니다.
-  * 일괄 분석 결과는 **개발팀 공유용 마크다운(`logcat_analysis_report.md`)**과 **이슈 통계·엑셀 분석용 CSV(`logcat_crash_summary.csv`)** 두 가지 포맷으로 동시 생성합니다.
+  * **기기 상태 사전 검증 (`check_adb_device`)**: 실행 전 `adb` 설치 여부, USB 연결, 디버깅 승인(`unauthorized`) 상태를 먼저 확인해 명확한 안내를 제공합니다.
+  * **실시간 감시 & 자동 스크린샷 (`--watch`)**: 크래시 패턴 감지 즉시 터미널 경보를 울리고 `adb exec-out screencap -p`로 당시 폰 화면 PNG와 직전 30줄 문맥 로그를 자동 저장합니다.
+  * **Monkey 스트레스 테스트 연동 (`--monkey`)**: 무작위 터치·이벤트 스트레스 테스트와 실시간 크래시 감시를 백그라운드에서 동시 수행해 앱 안정성을 검증합니다.
+  * **중복 크래시 그룹핑 & 패키지 필터 (`--package`)**: 예외·스택 지문 기준으로 동일 크래시 발생 횟수를 묶어 집계하고, 특정 앱 패키지만 필터링해 분석합니다.
 
 ---
 
 ## ✨ 주요 기능 (Key Features)
 
-1. **4대 치명적 Android 결함 자동 탐지 및 심각도 분류**
-   * `FATAL EXCEPTION` (`P0 Critical` — Java/Kotlin 런타임 예외 및 스택 트레이스 8줄 추출)
-   * `ANR in ...` (`P0 Critical` — Application Not Responding 프리징 감지)
-   * `Fatal signal / SIGSEGV` (`P0 Critical` — C/C++ 네이티브 계층 크래시 감지)
-   * `OutOfMemoryError` (`P1 High` — 힙 메모리 할당 실패 감지)
-2. **4가지 실행 모드 지원**
-   * **실시간 크래시 감시(`--watch`)**: `adb logcat -v threadtime` 스트림을 상시 감시하다가 치명적 오류 감지 즉시 경보 출력 및 직전 30줄 문맥 로그(`realtime_crash_*.md`) 자동 저장
-   * **실시간 단말 덤프 분석(`--adb`)**: USB/Wi-Fi로 연결된 Android 기기에서 `adb logcat -d`를 수집해 전체 요약 분석
-   * **저장 파일 분석(`--file`)**: 사전에 덤프된 대용량 로그 텍스트 파일 분석
-   * **내장 데모 모드(기본)**: 단말 연결이나 [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools)가 없는 환경에서도 `sample_logcat.txt`를 생성해 즉시 검증 가능
-3. **Zero-Dependency 경량 설계**
-   * [Python](https://www.python.org/) 3.8+ 표준 라이브러리(`re`, `csv`, `subprocess`, `argparse`, `collections`)만 사용하여 별도 패키지 설치 없이 Windows·macOS·Linux에서 즉시 실행됩니다.
+1. **4대 치명적 Android 결함 탐지 & 중복 그룹핑**
+   * `FATAL EXCEPTION` (`P0 Critical`), `ANR in ...` (`P0 Critical`), `Fatal signal / SIGSEGV` (`P0 Critical`), `OutOfMemoryError` (`P1 High`)
+   * 동일 스택 프레임에서 반복 발생한 크래시는 1건의 고유 결함으로 묶고 총 발생 횟수 및 최초·최근 시각을 기록합니다.
+2. **5가지 실행 모드 & 원클릭 런처**
+   * **데모 모드(기본)**: 샘플 로그로 중복 그룹핑·파싱 즉시 검증
+   * **단말 덤프 분석(`--adb`)**: 연결된 기기의 `adb logcat -d` 수집 및 분석
+   * **실시간 감시(`--watch`)**: 크래시 감지 시 화면 캡처(`.png`) + 직전 30줄 리포트(`.md`) 자동 생성
+   * **파일 분석(`--file`)**: 저장된 대용량 로그 파일 분석 (`--package` 필터 지원)
+   * **Monkey 테스트(`--monkey`)**: 지정 횟수만큼 무인 스트레스 테스트 수행 중 크래시 자동 포착
+   * **OS별 런처**: Windows(`run_analyzer.bat`), macOS/Linux(`run_analyzer.sh`) 대화형 메뉴 제공
+3. **Zero-Dependency 설계**
+   * [Python](https://www.python.org/) 3.8+ 표준 라이브러리만 사용하여 별도 `pip install` 없이 즉시 실행됩니다. (실기기 연동 시 [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) 필요)
 
 ---
 
 ## 🛠️ 기술 스택 (Tech Stack)
 
-* **Language**: [Python](https://www.python.org/) 3.8+ (표준 라이브러리 기반)
-* **Mobile Diagnostics**: [Android Debug Bridge (adb)](https://developer.android.com/tools/adb)
-* **Output Formats**: Markdown Report (`.md`), UTF-8 BOM CSV (`.csv`)
+* **Language**: [Python](https://www.python.org/) 3.8+ (`re`, `csv`, `subprocess`, `threading`, `collections`, `argparse`)
+* **Mobile Diagnostics**: [Android Debug Bridge (adb)](https://developer.android.com/tools/adb), Android `monkey`
+* **Launchers & Outputs**: Windows Batch (`.bat`), Bash (`.sh`), Markdown (`.md`), UTF-8 BOM CSV (`.csv`), PNG
 
 ---
 
 ## 🚀 빠른 시작 (Quickstart)
 
+### 원클릭 메뉴 런처 실행
+* **Windows 11**: `run_analyzer.bat` 더블 클릭
+* **macOS / Linux**:
+  ```bash
+  bash run_analyzer.sh
+  ```
+
+### CLI 직접 실행 예시
 ```bash
-# 1. 샘플 로그(sample_logcat.txt) 기반 데모 실행
+# 1. 샘플 로그 데모 실행 (중복 그룹핑 확인)
 python analyzer.py
 
-# 2. 저장된 대용량 logcat 파일 분석
-python analyzer.py --file path/to/device_log.txt
+# 2. 특정 앱 패키지 필터링 후 실시간 감시 + 크래시 시 자동 캡처
+python analyzer.py --watch --package com.example.app
 
-# 3. USB 디버깅이 켜진 Android 실기기 전체 덤프 분석 (adb 설치 필요)
-python analyzer.py --adb
+# 3. Monkey 무인 스트레스 테스트 500회 + 실시간 크래시 감시
+python analyzer.py --monkey com.example.app --events 500
 
-# 4. 실시간 크래시 감시 모드 (크래시 발생 즉시 경보 및 직전 30줄 자동 저장)
-python analyzer.py --watch
+# 4. 저장된 로그 파일 분석
+python analyzer.py --file device_log.txt --package com.example.app
 ```
 
 ---
@@ -63,12 +72,11 @@ python analyzer.py --watch
 
 ```text
 adb-logcat-analyzer/
-├── analyzer.py           # CLI 진입점 (--watch / --adb / --file / 데모 모드)
-├── logcat_parser.py      # threadtime 정규식 파싱 및 크래시·스택 트레이스 추출 엔진
-├── report_generator.py   # 마크다운 보고서 & UTF-8-SIG CSV 요약 리포트 생성기
-├── sample_logcat.txt     # 데모 검증용 샘플 Android 로그
-└── logcat_reports/       # 생성된 분석 및 실시간 크래시 보고서 폴더
-    ├── logcat_analysis_report.md
-    ├── logcat_crash_summary.csv
-    └── realtime_crash_*.md
+├── analyzer.py           # CLI 진입점 (기기확인 · 실시간 감시 · 스크린샷 · Monkey)
+├── logcat_parser.py      # threadtime 정규식 파싱 · 패키지 필터 · 중복 크래시 그룹핑
+├── report_generator.py   # 마크다운 보고서 & UTF-8-SIG CSV 요약 생성기
+├── run_analyzer.bat      # Windows 원클릭 대화형 런처
+├── run_analyzer.sh       # macOS/Linux 대화형 런처
+├── sample_logcat.txt     # 데모 검증용 샘플 로그
+└── logcat_reports/       # 분석 보고서, CSV, 실시간 크래시 문맥 & PNG 스크린샷
 ```
